@@ -29,6 +29,9 @@
 #define CLINT_TIMER_CMP_OFF	0x4000
 #define CLINT_TIMER_VAL_OFF	0xbff8
 
+extern void _quasi_uart_putchar(char);
+extern void _quasi_uart_puthex(unsigned int);
+
 /* CLINT manages IPI and Timer for RISC-V M-mode  */
 static u32 __iomem *clint_ipi_base;
 static u64 __iomem *clint_timer_cmp;
@@ -139,6 +142,8 @@ static irqreturn_t clint_timer_interrupt(int irq, void *dev_id)
 	struct clock_event_device *evdev = this_cpu_ptr(&clint_clock_event);
 
 	csr_clear(CSR_IE, IE_TIE);
+	/*_quasi_uart_puthex(evdev->event_handler);*/
+	/*_quasi_uart_putchar('\n');*/
 	evdev->event_handler(evdev);
 
 	return IRQ_HANDLED;

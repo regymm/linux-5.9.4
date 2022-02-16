@@ -968,11 +968,8 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	call_function_init();
 	WARN(!irqs_disabled(), "Interrupts were enabled early\n");
 
-	/*pr_err("mstatus: %08x", arch_local_save_flags());*/
 	early_boot_irqs_disabled = false;
 	local_irq_enable();
-	/*pr_err("mstatus: %08x", arch_local_save_flags());*/
-	/*pr_err("local_irq_enable-d!");*/
 
 	kmem_cache_init_late();
 

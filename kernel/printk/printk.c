@@ -2080,7 +2080,7 @@ asmlinkage __visible int printk(const char *fmt, ...)
 	int r;
 
 	va_start(args, fmt);
-	/*_quasi_uart_putstr("\033[37m");*/
+	/*_quasi_uart_putstr("\033[48");*/
 	/*r = vprintf_(fmt, args); // my*/
 	/*_quasi_uart_putstr("\033[0m");*/
 	r = vprintk_func(fmt, args);

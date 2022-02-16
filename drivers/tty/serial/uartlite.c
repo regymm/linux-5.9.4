@@ -23,6 +23,50 @@
 #include <linux/of_platform.h>
 #include <linux/clk.h>
 
+void _quasi_uart_puthex(unsigned int hex)
+{
+	int x;
+	x = (hex>>28)%0x10;
+	_quasi_uart_putchar(x + (x < 10 ? '0' : 'a' - 10));
+	x = (hex>>24)%0x10;
+	_quasi_uart_putchar(x + (x < 10 ? '0' : 'a' - 10));
+	x = (hex>>20)%0x10;
+	_quasi_uart_putchar(x + (x < 10 ? '0' : 'a' - 10));
+	x = (hex>>16)%0x10;
+	_quasi_uart_putchar(x + (x < 10 ? '0' : 'a' - 10));
+	x = (hex>>12)%0x10;
+	_quasi_uart_putchar(x + (x < 10 ? '0' : 'a' - 10));
+	x = (hex>>8)%0x10;
+	_quasi_uart_putchar(x + (x < 10 ? '0' : 'a' - 10));
+	x = (hex>>4)%0x10;
+	_quasi_uart_putchar(x + (x < 10 ? '0' : 'a' - 10));
+	x = (hex>>0)%0x10;
+	_quasi_uart_putchar(x + (x < 10 ? '0' : 'a' - 10));
+}
+void _quasi_uart_putchar(char c)
+{
+	volatile int* uart_tx = (int*) 0x93000000;
+	volatile int* uart_tx_done = (int*) 0x93000008;
+	if (c == '\n') _quasi_uart_putchar('\r');
+	while(! *uart_tx_done);
+	*uart_tx = c;
+	while(! *uart_tx_done);
+}
+void _quasi_uart_putchar_relax(char c)
+{
+	volatile int* uart_tx = (int*) 0x93000000;
+	volatile int* uart_tx_done = (int*) 0x93000008;
+	if (c == '\n') _quasi_uart_putchar_relax('\r');
+	while(! *uart_tx_done) cpu_relax();
+	*uart_tx = c;
+	while(! *uart_tx_done) cpu_relax();
+}
+void _quasi_uart_putstr(const char* str)
+{
+	int n = 0;
+	while(str[n]) _quasi_uart_putchar(str[n++]);
+}
+
 #define ULITE_NAME		"ttyUL"
 #define ULITE_MAJOR		204
 #define ULITE_MINOR		187
@@ -72,12 +116,13 @@ struct uartlite_reg_ops {
 
 static u32 uartlite_inbe32(void __iomem *addr)
 {
-	return ioread32be(addr);
+	return 0;
+	/*return ioread32be(addr);*/
 }
 
 static void uartlite_outbe32(u32 val, void __iomem *addr)
 {
-	iowrite32be(val, addr);
+	/*iowrite32be(val, addr);*/
 }
 
 static const struct uartlite_reg_ops uartlite_be = {
@@ -87,12 +132,13 @@ static const struct uartlite_reg_ops uartlite_be = {
 
 static u32 uartlite_inle32(void __iomem *addr)
 {
-	return ioread32(addr);
+	return 0;
+	/*return ioread32(addr);*/
 }
 
 static void uartlite_outle32(u32 val, void __iomem *addr)
 {
-	iowrite32(val, addr);
+	/*iowrite32(val, addr);*/
 }
 
 static const struct uartlite_reg_ops uartlite_le = {
@@ -102,16 +148,17 @@ static const struct uartlite_reg_ops uartlite_le = {
 
 static inline u32 uart_in32(u32 offset, struct uart_port *port)
 {
-	struct uartlite_data *pdata = port->private_data;
+	/*struct uartlite_data *pdata = port->private_data;*/
 
-	return pdata->reg_ops->in(port->membase + offset);
+	/*return pdata->reg_ops->in(port->membase + offset);*/
+	return 0;
 }
 
 static inline void uart_out32(u32 val, u32 offset, struct uart_port *port)
 {
-	struct uartlite_data *pdata = port->private_data;
+	/*struct uartlite_data *pdata = port->private_data;*/
 
-	pdata->reg_ops->out(val, port->membase + offset);
+	/*pdata->reg_ops->out(val, port->membase + offset);*/
 }
 
 static struct uart_port ulite_ports[ULITE_NR_UARTS];
@@ -122,50 +169,51 @@ static struct uart_port ulite_ports[ULITE_NR_UARTS];
 
 static int ulite_receive(struct uart_port *port, int stat)
 {
-	struct tty_port *tport = &port->state->port;
-	unsigned char ch = 0;
-	char flag = TTY_NORMAL;
+	_quasi_uart_putstr("ulite_receive\n");
+	/*struct tty_port *tport = &port->state->port;*/
+	/*unsigned char ch = 0;*/
+	/*char flag = TTY_NORMAL;*/
 
-	if ((stat & (ULITE_STATUS_RXVALID | ULITE_STATUS_OVERRUN
-		     | ULITE_STATUS_FRAME)) == 0)
-		return 0;
+	/*if ((stat & (ULITE_STATUS_RXVALID | ULITE_STATUS_OVERRUN*/
+			 /*| ULITE_STATUS_FRAME)) == 0)*/
+		/*return 0;*/
 
-	/* stats */
-	if (stat & ULITE_STATUS_RXVALID) {
-		port->icount.rx++;
-		ch = uart_in32(ULITE_RX, port);
+	/*[> stats <]*/
+	/*if (stat & ULITE_STATUS_RXVALID) {*/
+		/*port->icount.rx++;*/
+		/*ch = uart_in32(ULITE_RX, port);*/
 
-		if (stat & ULITE_STATUS_PARITY)
-			port->icount.parity++;
-	}
+		/*if (stat & ULITE_STATUS_PARITY)*/
+			/*port->icount.parity++;*/
+	/*}*/
 
-	if (stat & ULITE_STATUS_OVERRUN)
-		port->icount.overrun++;
+	/*if (stat & ULITE_STATUS_OVERRUN)*/
+		/*port->icount.overrun++;*/
 
-	if (stat & ULITE_STATUS_FRAME)
-		port->icount.frame++;
-
-
-	/* drop byte with parity error if IGNPAR specificed */
-	if (stat & port->ignore_status_mask & ULITE_STATUS_PARITY)
-		stat &= ~ULITE_STATUS_RXVALID;
-
-	stat &= port->read_status_mask;
-
-	if (stat & ULITE_STATUS_PARITY)
-		flag = TTY_PARITY;
+	/*if (stat & ULITE_STATUS_FRAME)*/
+		/*port->icount.frame++;*/
 
 
-	stat &= ~port->ignore_status_mask;
+	/*[> drop byte with parity error if IGNPAR specificed <]*/
+	/*if (stat & port->ignore_status_mask & ULITE_STATUS_PARITY)*/
+		/*stat &= ~ULITE_STATUS_RXVALID;*/
 
-	if (stat & ULITE_STATUS_RXVALID)
-		tty_insert_flip_char(tport, ch, flag);
+	/*stat &= port->read_status_mask;*/
 
-	if (stat & ULITE_STATUS_FRAME)
-		tty_insert_flip_char(tport, 0, TTY_FRAME);
+	/*if (stat & ULITE_STATUS_PARITY)*/
+		/*flag = TTY_PARITY;*/
 
-	if (stat & ULITE_STATUS_OVERRUN)
-		tty_insert_flip_char(tport, 0, TTY_OVERRUN);
+
+	/*stat &= ~port->ignore_status_mask;*/
+
+	/*if (stat & ULITE_STATUS_RXVALID)*/
+		/*tty_insert_flip_char(tport, ch, flag);*/
+
+	/*if (stat & ULITE_STATUS_FRAME)*/
+		/*tty_insert_flip_char(tport, 0, TTY_FRAME);*/
+
+	/*if (stat & ULITE_STATUS_OVERRUN)*/
+		/*tty_insert_flip_char(tport, 0, TTY_OVERRUN);*/
 
 	return 1;
 }
@@ -174,26 +222,29 @@ static int ulite_transmit(struct uart_port *port, int stat)
 {
 	struct circ_buf *xmit  = &port->state->xmit;
 
-	if (stat & ULITE_STATUS_TXFULL)
-		return 0;
+	/*if (stat & ULITE_STATUS_TXFULL)*/
+		/*return 0;*/
 
 	if (port->x_char) {
-		uart_out32(port->x_char, ULITE_TX, port);
+		_quasi_uart_putchar(port->x_char);
+		/*uart_out32(port->x_char, ULITE_TX, port);*/
 		port->x_char = 0;
 		port->icount.tx++;
 		return 1;
 	}
 
-	if (uart_circ_empty(xmit) || uart_tx_stopped(port))
+	/*if (uart_circ_empty(xmit) || uart_tx_stopped(port))*/
+	if (uart_circ_empty(xmit))
 		return 0;
 
-	uart_out32(xmit->buf[xmit->tail], ULITE_TX, port);
+	/*uart_out32(xmit->buf[xmit->tail], ULITE_TX, port);*/
+	_quasi_uart_putchar(xmit->buf[xmit->tail]);
 	xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE-1);
 	port->icount.tx++;
 
-	/* wake up */
-	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
-		uart_write_wakeup(port);
+	/*[> wake up <]*/
+	/*if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)*/
+		/*uart_write_wakeup(port);*/
 
 	return 1;
 }
@@ -204,14 +255,14 @@ static irqreturn_t ulite_isr(int irq, void *dev_id)
 	int stat, busy, n = 0;
 	unsigned long flags;
 
-	do {
-		spin_lock_irqsave(&port->lock, flags);
-		stat = uart_in32(ULITE_STATUS, port);
-		busy  = ulite_receive(port, stat);
-		busy |= ulite_transmit(port, stat);
-		spin_unlock_irqrestore(&port->lock, flags);
-		n++;
-	} while (busy);
+	/*do {*/
+		/*spin_lock_irqsave(&port->lock, flags);*/
+		/*stat = uart_in32(ULITE_STATUS, port);*/
+		/*busy  = ulite_receive(port, stat);*/
+		/*busy |= ulite_transmit(port, stat);*/
+		/*spin_unlock_irqrestore(&port->lock, flags);*/
+		/*n++;*/
+	/*} while (busy);*/
 
 	/* work done? */
 	if (n > 1) {
@@ -224,14 +275,15 @@ static irqreturn_t ulite_isr(int irq, void *dev_id)
 
 static unsigned int ulite_tx_empty(struct uart_port *port)
 {
-	unsigned long flags;
-	unsigned int ret;
+	/*unsigned long flags;*/
+	/*unsigned int ret;*/
 
-	spin_lock_irqsave(&port->lock, flags);
-	ret = uart_in32(ULITE_STATUS, port);
-	spin_unlock_irqrestore(&port->lock, flags);
+	/*spin_lock_irqsave(&port->lock, flags);*/
+	/*ret = uart_in32(ULITE_STATUS, port);*/
+	/*spin_unlock_irqrestore(&port->lock, flags);*/
 
-	return ret & ULITE_STATUS_TXEMPTY ? TIOCSER_TEMT : 0;
+	/*return ret & ULITE_STATUS_TXEMPTY ? TIOCSER_TEMT : 0;*/
+	return TIOCSER_TEMT;
 }
 
 static unsigned int ulite_get_mctrl(struct uart_port *port)
@@ -251,14 +303,22 @@ static void ulite_stop_tx(struct uart_port *port)
 
 static void ulite_start_tx(struct uart_port *port)
 {
-	ulite_transmit(port, uart_in32(ULITE_STATUS, port));
+	/*[>_quasi_uart_putstr("ulite_start_tx\n");<]*/
+	/*if (port->x_char) {*/
+		/*_quasi_uart_putchar(port->x_char);*/
+		/*port->x_char = 0;*/
+		/*[>port->icount.tx++;<]*/
+		/*return 1;*/
+	/*}*/
+	/*return 0;*/
+	while (ulite_transmit(port, uart_in32(ULITE_STATUS, port)));
 }
 
 static void ulite_stop_rx(struct uart_port *port)
 {
 	/* don't forward any more data (like !CREAD) */
-	port->ignore_status_mask = ULITE_STATUS_RXVALID | ULITE_STATUS_PARITY
-		| ULITE_STATUS_FRAME | ULITE_STATUS_OVERRUN;
+	/*port->ignore_status_mask = ULITE_STATUS_RXVALID | ULITE_STATUS_PARITY*/
+		/*| ULITE_STATUS_FRAME | ULITE_STATUS_OVERRUN;*/
 }
 
 static void ulite_break_ctl(struct uart_port *port, int ctl)
@@ -271,65 +331,65 @@ static int ulite_startup(struct uart_port *port)
 	struct uartlite_data *pdata = port->private_data;
 	int ret;
 
-	ret = clk_enable(pdata->clk);
-	if (ret) {
-		dev_err(port->dev, "Failed to enable clock\n");
-		return ret;
-	}
+	/*ret = clk_enable(pdata->clk);*/
+	/*if (ret) {*/
+		/*dev_err(port->dev, "Failed to enable clock\n");*/
+		/*return ret;*/
+	/*}*/
 
-	ret = request_irq(port->irq, ulite_isr, IRQF_SHARED | IRQF_TRIGGER_RISING,
-			  "uartlite", port);
-	if (ret)
-		return ret;
+	/*ret = request_irq(port->irq, ulite_isr, IRQF_SHARED | IRQF_TRIGGER_RISING,*/
+			  /*"uartlite", port);*/
+	/*if (ret)*/
+		/*return ret;*/
 
-	uart_out32(ULITE_CONTROL_RST_RX | ULITE_CONTROL_RST_TX,
-		ULITE_CONTROL, port);
-	uart_out32(ULITE_CONTROL_IE, ULITE_CONTROL, port);
+	/*uart_out32(ULITE_CONTROL_RST_RX | ULITE_CONTROL_RST_TX,*/
+		/*ULITE_CONTROL, port);*/
+	/*uart_out32(ULITE_CONTROL_IE, ULITE_CONTROL, port);*/
 
 	return 0;
 }
 
 static void ulite_shutdown(struct uart_port *port)
 {
-	struct uartlite_data *pdata = port->private_data;
+	/*struct uartlite_data *pdata = port->private_data;*/
 
-	uart_out32(0, ULITE_CONTROL, port);
-	uart_in32(ULITE_CONTROL, port); /* dummy */
-	free_irq(port->irq, port);
-	clk_disable(pdata->clk);
+	/*uart_out32(0, ULITE_CONTROL, port);*/
+	/*uart_in32(ULITE_CONTROL, port); [> dummy <]*/
+	/*free_irq(port->irq, port);*/
+	/*clk_disable(pdata->clk);*/
 }
 
 static void ulite_set_termios(struct uart_port *port, struct ktermios *termios,
 			      struct ktermios *old)
 {
-	unsigned long flags;
-	unsigned int baud;
+	/*unsigned long flags;*/
+	/*unsigned int baud;*/
 
-	spin_lock_irqsave(&port->lock, flags);
+	/*spin_lock_irqsave(&port->lock, flags);*/
 
-	port->read_status_mask = ULITE_STATUS_RXVALID | ULITE_STATUS_OVERRUN
-		| ULITE_STATUS_TXFULL;
+	/*port->read_status_mask = ULITE_STATUS_RXVALID | ULITE_STATUS_OVERRUN*/
+		/*| ULITE_STATUS_TXFULL;*/
 
-	if (termios->c_iflag & INPCK)
-		port->read_status_mask |=
-			ULITE_STATUS_PARITY | ULITE_STATUS_FRAME;
+	/*if (termios->c_iflag & INPCK)*/
+		/*port->read_status_mask |=*/
+			/*ULITE_STATUS_PARITY | ULITE_STATUS_FRAME;*/
 
-	port->ignore_status_mask = 0;
-	if (termios->c_iflag & IGNPAR)
-		port->ignore_status_mask |= ULITE_STATUS_PARITY
-			| ULITE_STATUS_FRAME | ULITE_STATUS_OVERRUN;
+	/*port->ignore_status_mask = 0;*/
+	/*if (termios->c_iflag & IGNPAR)*/
+		/*port->ignore_status_mask |= ULITE_STATUS_PARITY*/
+			/*| ULITE_STATUS_FRAME | ULITE_STATUS_OVERRUN;*/
 
-	/* ignore all characters if CREAD is not set */
-	if ((termios->c_cflag & CREAD) == 0)
-		port->ignore_status_mask |=
-			ULITE_STATUS_RXVALID | ULITE_STATUS_PARITY
-			| ULITE_STATUS_FRAME | ULITE_STATUS_OVERRUN;
+	/*[> ignore all characters if CREAD is not set <]*/
+	/*if ((termios->c_cflag & CREAD) == 0)*/
+		/*port->ignore_status_mask |=*/
+			/*ULITE_STATUS_RXVALID | ULITE_STATUS_PARITY*/
+			/*| ULITE_STATUS_FRAME | ULITE_STATUS_OVERRUN;*/
 
-	/* update timeout */
-	baud = uart_get_baud_rate(port, termios, old, 0, 460800);
-	uart_update_timeout(port, termios->c_cflag, baud);
+	/*[> update timeout <]*/
+	/*baud = uart_get_baud_rate(port, termios, old, 0, 460800);*/
+	/*uart_update_timeout(port, termios->c_cflag, baud);*/
 
-	spin_unlock_irqrestore(&port->lock, flags);
+	/*spin_unlock_irqrestore(&port->lock, flags);*/
 }
 
 static const char *ulite_type(struct uart_port *port)
@@ -349,7 +409,7 @@ static int ulite_request_port(struct uart_port *port)
 	struct uartlite_data *pdata = port->private_data;
 	int ret;
 
-	pr_debug("ulite console: port=%p; port->mapbase=%llx\n",
+	pr_err("ulite console: port=%p; port->mapbase=%llx\n",
 		 port, (unsigned long long) port->mapbase);
 
 	if (!request_mem_region(port->mapbase, ULITE_REGION, "uartlite")) {
@@ -365,12 +425,12 @@ static int ulite_request_port(struct uart_port *port)
 	}
 
 	pdata->reg_ops = &uartlite_be;
-	ret = uart_in32(ULITE_CONTROL, port);
-	uart_out32(ULITE_CONTROL_RST_TX, ULITE_CONTROL, port);
-	ret = uart_in32(ULITE_STATUS, port);
-	/* Endianess detection */
-	if ((ret & ULITE_STATUS_TXEMPTY) != ULITE_STATUS_TXEMPTY)
-		pdata->reg_ops = &uartlite_le;
+	/*ret = uart_in32(ULITE_CONTROL, port);*/
+	/*uart_out32(ULITE_CONTROL_RST_TX, ULITE_CONTROL, port);*/
+	/*ret = uart_in32(ULITE_STATUS, port);*/
+	/*[> Endianess detection <]*/
+	/*if ((ret & ULITE_STATUS_TXEMPTY) != ULITE_STATUS_TXEMPTY)*/
+		/*pdata->reg_ops = &uartlite_le;*/
 
 	return 0;
 }
@@ -390,12 +450,12 @@ static int ulite_verify_port(struct uart_port *port, struct serial_struct *ser)
 static void ulite_pm(struct uart_port *port, unsigned int state,
 		     unsigned int oldstate)
 {
-	struct uartlite_data *pdata = port->private_data;
+	/*struct uartlite_data *pdata = port->private_data;*/
 
-	if (!state)
-		clk_enable(pdata->clk);
-	else
-		clk_disable(pdata->clk);
+	/*if (!state)*/
+		/*clk_enable(pdata->clk);*/
+	/*else*/
+		/*clk_disable(pdata->clk);*/
 }
 
 #ifdef CONFIG_CONSOLE_POLL
@@ -447,36 +507,40 @@ static const struct uart_ops ulite_ops = {
 #ifdef CONFIG_SERIAL_UARTLITE_CONSOLE
 static void ulite_console_wait_tx(struct uart_port *port)
 {
-	u8 val;
-	unsigned long timeout;
+	cpu_relax();
+	/*u8 val;*/
+	/*unsigned long timeout;*/
 
 	/*
 	 * Spin waiting for TX fifo to have space available.
 	 * When using the Microblaze Debug Module this can take up to 1s
 	 */
-	timeout = jiffies + msecs_to_jiffies(1000);
-	while (1) {
-		val = uart_in32(ULITE_STATUS, port);
-		if ((val & ULITE_STATUS_TXFULL) == 0)
-			break;
-		if (time_after(jiffies, timeout)) {
-			dev_warn(port->dev,
-				 "timeout waiting for TX buffer empty\n");
-			break;
-		}
-		cpu_relax();
-	}
+	/*timeout = jiffies + msecs_to_jiffies(1000);*/
+	/*while (1) {*/
+		/*val = uart_in32(ULITE_STATUS, port);*/
+		/*if ((val & ULITE_STATUS_TXFULL) == 0)*/
+			/*break;*/
+		/*if (time_after(jiffies, timeout)) {*/
+			/*dev_warn(port->dev,*/
+				 /*"timeout waiting for TX buffer empty\n");*/
+			/*break;*/
+		/*}*/
+		/*cpu_relax();*/
+	/*}*/
 }
 
 static void ulite_console_putchar(struct uart_port *port, int ch)
 {
-	ulite_console_wait_tx(port);
-	uart_out32(ch, ULITE_TX, port);
+	/*_quasi_uart_putchar_relax(ch);*/
+	_quasi_uart_putchar(ch);
+	/*ulite_console_wait_tx(port);*/
+	/*uart_out32(ch, ULITE_TX, port);*/
 }
 
 static void ulite_console_write(struct console *co, const char *s,
 				unsigned int count)
 {
+	/*_quasi_uart_putchar('*');*/
 	struct uart_port *port = console_port;
 	unsigned long flags;
 	unsigned int ier;
@@ -488,16 +552,16 @@ static void ulite_console_write(struct console *co, const char *s,
 		spin_lock_irqsave(&port->lock, flags);
 
 	/* save and disable interrupt */
-	ier = uart_in32(ULITE_STATUS, port) & ULITE_STATUS_IE;
-	uart_out32(0, ULITE_CONTROL, port);
+	/*ier = uart_in32(ULITE_STATUS, port) & ULITE_STATUS_IE;*/
+	/*uart_out32(0, ULITE_CONTROL, port);*/
 
 	uart_console_write(port, s, count, ulite_console_putchar);
 
 	ulite_console_wait_tx(port);
 
 	/* restore interrupt state */
-	if (ier)
-		uart_out32(ULITE_CONTROL_IE, ULITE_CONTROL, port);
+	/*if (ier)*/
+		/*uart_out32(ULITE_CONTROL_IE, ULITE_CONTROL, port);*/
 
 	if (locked)
 		spin_unlock_irqrestore(&port->lock, flags);
@@ -522,6 +586,7 @@ static int ulite_console_setup(struct console *co, char *options)
 
 	/* not initialized yet? */
 	if (!port->membase) {
+		pr_err("not init yet?");
 		if (ulite_request_port(port))
 			return -ENODEV;
 	}
@@ -546,6 +611,7 @@ static struct console ulite_console = {
 
 static void early_uartlite_putc(struct uart_port *port, int c)
 {
+	_quasi_uart_putchar(c);
 	/*
 	 * Limit how many times we'll spin waiting for TX FIFO status.
 	 * This will prevent lockups if the base address is incorrectly
@@ -554,15 +620,16 @@ static void early_uartlite_putc(struct uart_port *port, int c)
 	 * we'll never timeout on a working UART.
 	 */
 
-	unsigned retries = 1000000;
-	/* read status bit - 0x8 offset */
-	while (--retries && (readl(port->membase + 8) & (1 << 3)))
-		;
 
-	/* Only attempt the iowrite if we didn't timeout */
-	/* write to TX_FIFO - 0x4 offset */
-	if (retries)
-		writel(c & 0xff, port->membase + 4);
+	/*unsigned retries = 1000000;*/
+	/*[> read status bit - 0x8 offset <]*/
+	/*while (--retries && (readl(port->membase + 8) & (1 << 3)))*/
+		/*;*/
+
+	/*[> Only attempt the iowrite if we didn't timeout <]*/
+	/*[> write to TX_FIFO - 0x4 offset <]*/
+	/*if (retries)*/
+		/*writel(c & 0xff, port->membase + 4);*/
 }
 
 static void early_uartlite_write(struct console *console,
@@ -710,10 +777,10 @@ static int ulite_release(struct device *dev)
  */
 static int __maybe_unused ulite_suspend(struct device *dev)
 {
-	struct uart_port *port = dev_get_drvdata(dev);
+	/*struct uart_port *port = dev_get_drvdata(dev);*/
 
-	if (port)
-		uart_suspend_port(&ulite_uart_driver, port);
+	/*if (port)*/
+		/*uart_suspend_port(&ulite_uart_driver, port);*/
 
 	return 0;
 }
@@ -726,10 +793,10 @@ static int __maybe_unused ulite_suspend(struct device *dev)
  */
 static int __maybe_unused ulite_resume(struct device *dev)
 {
-	struct uart_port *port = dev_get_drvdata(dev);
+	/*struct uart_port *port = dev_get_drvdata(dev);*/
 
-	if (port)
-		uart_resume_port(&ulite_uart_driver, port);
+	/*if (port)*/
+		/*uart_resume_port(&ulite_uart_driver, port);*/
 
 	return 0;
 }
@@ -771,28 +838,29 @@ static int ulite_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -ENODEV;
+	/*pr_err("ulite_probe");*/
 
-	irq = platform_get_irq(pdev, 0);
-	if (irq <= 0)
-		return -ENXIO;
+	/*irq = platform_get_irq(pdev, 0);*/
+	/*if (irq <= 0)*/
+		/*return -ENXIO;*/
 
-	pdata->clk = devm_clk_get(&pdev->dev, "s_axi_aclk");
-	if (IS_ERR(pdata->clk)) {
-		if (PTR_ERR(pdata->clk) != -ENOENT)
-			return PTR_ERR(pdata->clk);
+	/*pdata->clk = devm_clk_get(&pdev->dev, "s_axi_aclk");*/
+	/*if (IS_ERR(pdata->clk)) {*/
+		/*if (PTR_ERR(pdata->clk) != -ENOENT)*/
+			/*return PTR_ERR(pdata->clk);*/
 
 		/*
 		 * Clock framework support is optional, continue on
 		 * anyways if we don't find a matching clock.
 		 */
 		pdata->clk = NULL;
-	}
+	/*}*/
 
-	ret = clk_prepare_enable(pdata->clk);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to prepare clock\n");
-		return ret;
-	}
+	/*ret = clk_prepare_enable(pdata->clk);*/
+	/*if (ret) {*/
+		/*dev_err(&pdev->dev, "Failed to prepare clock\n");*/
+		/*return ret;*/
+	/*}*/
 
 	if (!ulite_uart_driver.state) {
 		dev_dbg(&pdev->dev, "uartlite: calling uart_register_driver()\n");
@@ -802,10 +870,12 @@ static int ulite_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
+	/*pr_err("ulite_probe");*/
 
-	ret = ulite_assign(&pdev->dev, id, res->start, irq, pdata);
+	/*ret = ulite_assign(&pdev->dev, id, res->start, irq, pdata);*/
+	ret = ulite_assign(&pdev->dev, id, res->start, 1, pdata);
 
-	clk_disable(pdata->clk);
+	/*clk_disable(pdata->clk);*/
 
 	return ret;
 }
@@ -815,7 +885,7 @@ static int ulite_remove(struct platform_device *pdev)
 	struct uart_port *port = dev_get_drvdata(&pdev->dev);
 	struct uartlite_data *pdata = port->private_data;
 
-	clk_disable_unprepare(pdata->clk);
+	/*clk_disable_unprepare(pdata->clk);*/
 	return ulite_release(&pdev->dev);
 }
 

@@ -19,8 +19,10 @@
 
 static struct irq_domain *intc_domain;
 
+extern void _quasi_uart_puthex(unsigned int);
 static asmlinkage void riscv_intc_irq(struct pt_regs *regs)
 {
+	/*_quasi_uart_puthex(regs);*/
 	unsigned long cause = regs->cause & ~CAUSE_IRQ_FLAG;
 
 	if (unlikely(cause >= BITS_PER_LONG))

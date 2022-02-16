@@ -625,10 +625,14 @@ SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count)
 	return ksys_read(fd, buf, count);
 }
 
+extern void _quasi_uart_putstr(const char*);
 ssize_t ksys_write(unsigned int fd, const char __user *buf, size_t count)
 {
+	/*_quasi_uart_putstr("ksys_write");*/
+	/*pr_err("ksys_write: %d, %08x, %d", fd, buf, count);*/
 	struct fd f = fdget_pos(fd);
 	ssize_t ret = -EBADF;
+	/*_quasi_uart_putstr("ksys_write fd got");*/
 
 	if (f.file) {
 		loff_t pos, *ppos = file_ppos(f.file);
@@ -641,6 +645,8 @@ ssize_t ksys_write(unsigned int fd, const char __user *buf, size_t count)
 			f.file->f_pos = pos;
 		fdput_pos(f);
 	}
+	pr_err("ksys_write: %d, %08x, %d, ret: %d", fd, buf, count, ret);
+	/*_quasi_uart_putstr("ksys_write ret\r\n");*/
 
 	return ret;
 }

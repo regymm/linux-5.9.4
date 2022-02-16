@@ -469,7 +469,7 @@ static int load_flat_file(struct linux_binprm *bprm,
 		goto err;
 	}
 
-	if (flags & FLAT_FLAG_KTRACE)
+	/*if (flags & FLAT_FLAG_KTRACE)*/
 		pr_info("Loading file: %s\n", bprm->filename);
 
 #ifdef CONFIG_BINFMT_FLAT_OLD
@@ -593,6 +593,7 @@ static int load_flat_file(struct linux_binprm *bprm,
 		datapos = ALIGN(realdatastart +
 				MAX_SHARED_LIBS * sizeof(unsigned long),
 				FLAT_DATA_ALIGN);
+		pr_err("datapos: %08x", datapos);
 
 		pr_debug("Allocated data+bss+stack (%u bytes): %lx\n",
 			 data_len + bss_len + stack_len, datapos);
@@ -639,7 +640,8 @@ static int load_flat_file(struct linux_binprm *bprm,
 		realdatastart = textpos + ntohl(hdr->data_start);
 		datapos = ALIGN(realdatastart +
 				MAX_SHARED_LIBS * sizeof(u32),
-				FLAT_DATA_ALIGN);
+				FLAT_DATA_ALIGN) - 0x20; // DAMN!!
+		pr_err("datapos_2: %08x", datapos);
 
 		reloc = (__be32 __user *)
 			(datapos + (ntohl(hdr->reloc_start) - text_len));
@@ -743,14 +745,14 @@ static int load_flat_file(struct linux_binprm *bprm,
 #endif
 	}
 
-	if (flags & FLAT_FLAG_KTRACE) {
+	/*if (flags & FLAT_FLAG_KTRACE) {*/
 		pr_info("Mapping is %lx, Entry point is %x, data_start is %x\n",
 			textpos, 0x00ffffff&ntohl(hdr->entry), ntohl(hdr->data_start));
 		pr_info("%s %s: TEXT=%lx-%lx DATA=%lx-%lx BSS=%lx-%lx\n",
 			id ? "Lib" : "Load", bprm->filename,
 			start_code, end_code, datapos, datapos + data_len,
 			datapos + data_len, (datapos + data_len + bss_len + 3) & ~3);
-	}
+	/*}*/
 
 	/* Store the current module values into the global library structure */
 	libinfo->lib_list[id].start_code = start_code;
@@ -1017,8 +1019,9 @@ static int load_flat_binary(struct linux_binprm *bprm)
 #endif
 
 	finalize_exec(bprm);
-	pr_debug("start_thread(regs=0x%p, entry=0x%lx, start_stack=0x%lx)\n",
+	pr_err("start_thread(regs=0x%p, entry=0x%lx, start_stack=0x%lx)\n",
 		 regs, start_addr, current->mm->start_stack);
+	/*while(1);*/
 	start_thread(regs, start_addr, current->mm->start_stack);
 
 	return 0;

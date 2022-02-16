@@ -1884,17 +1884,17 @@ static bool handle_rx_dma(struct uart_8250_port *up, unsigned int iir)
  */
 int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
 {
-	/*unsigned char status;*/
-	/*unsigned long flags;*/
-	/*struct uart_8250_port *up = up_to_u8250p(port);*/
-	/*bool skip_rx = false;*/
+	unsigned char status;
+	unsigned long flags;
+	struct uart_8250_port *up = up_to_u8250p(port);
+	bool skip_rx = false;
 
-	/*if (iir & UART_IIR_NO_INT)*/
-		/*return 0;*/
+	if (iir & UART_IIR_NO_INT)
+		return 0;
 
-	/*spin_lock_irqsave(&port->lock, flags);*/
+	spin_lock_irqsave(&port->lock, flags);
 
-	/*status = serial_port_in(port, UART_LSR);*/
+	status = serial_port_in(port, UART_LSR);
 
 	/*
 	 * If port is stopped and there are no error conditions in the
@@ -1904,38 +1904,38 @@ int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
 	 * halting RX. This only works when auto HW flow control is
 	 * available.
 	 */
-	/*if (!(status & (UART_LSR_FIFOE | UART_LSR_BRK_ERROR_BITS)) &&*/
-		/*(port->status & (UPSTAT_AUTOCTS | UPSTAT_AUTORTS)) &&*/
-		/*!(port->read_status_mask & UART_LSR_DR))*/
-		/*skip_rx = true;*/
+	if (!(status & (UART_LSR_FIFOE | UART_LSR_BRK_ERROR_BITS)) &&
+		(port->status & (UPSTAT_AUTOCTS | UPSTAT_AUTORTS)) &&
+		!(port->read_status_mask & UART_LSR_DR))
+		skip_rx = true;
 
-	/*if (status & (UART_LSR_DR | UART_LSR_BI) && !skip_rx) {*/
-		/*if (!up->dma || handle_rx_dma(up, iir))*/
-			/*status = serial8250_rx_chars(up, status);*/
-	/*}*/
-	/*serial8250_modem_status(up);*/
-	/*if ((!up->dma || up->dma->tx_err) && (status & UART_LSR_THRE) &&*/
-		/*(up->ier & UART_IER_THRI))*/
-		/*serial8250_tx_chars(up);*/
+	if (status & (UART_LSR_DR | UART_LSR_BI) && !skip_rx) {
+		if (!up->dma || handle_rx_dma(up, iir))
+			status = serial8250_rx_chars(up, status);
+	}
+	serial8250_modem_status(up);
+	if ((!up->dma || up->dma->tx_err) && (status & UART_LSR_THRE) &&
+		(up->ier & UART_IER_THRI))
+		serial8250_tx_chars(up);
 
-	/*uart_unlock_and_check_sysrq(port, flags);*/
+	uart_unlock_and_check_sysrq(port, flags);
 	return 1;
 }
 EXPORT_SYMBOL_GPL(serial8250_handle_irq);
 
 static int serial8250_default_handle_irq(struct uart_port *port)
 {
-	/*struct uart_8250_port *up = up_to_u8250p(port);*/
-	/*unsigned int iir;*/
-	/*int ret;*/
+	struct uart_8250_port *up = up_to_u8250p(port);
+	unsigned int iir;
+	int ret;
 
-	/*serial8250_rpm_get(up);*/
+	serial8250_rpm_get(up);
 
-	/*iir = serial_port_in(port, UART_IIR);*/
-	/*ret = serial8250_handle_irq(port, iir);*/
+	iir = serial_port_in(port, UART_IIR);
+	ret = serial8250_handle_irq(port, iir);
 
-	/*serial8250_rpm_put(up);*/
-	/*return ret;*/
+	serial8250_rpm_put(up);
+	return ret;
 	return 1;
 }
 
@@ -1947,39 +1947,39 @@ static int serial8250_default_handle_irq(struct uart_port *port)
  */
 static int serial8250_tx_threshold_handle_irq(struct uart_port *port)
 {
-	/*unsigned long flags;*/
-	/*unsigned int iir = serial_port_in(port, UART_IIR);*/
+	unsigned long flags;
+	unsigned int iir = serial_port_in(port, UART_IIR);
 
-	/*[> TX Threshold IRQ triggered so load up FIFO <]*/
-	/*if ((iir & UART_IIR_ID) == UART_IIR_THRI) {*/
-		/*struct uart_8250_port *up = up_to_u8250p(port);*/
+	/* TX Threshold IRQ triggered so load up FIFO */
+	if ((iir & UART_IIR_ID) == UART_IIR_THRI) {
+		struct uart_8250_port *up = up_to_u8250p(port);
 
-		/*spin_lock_irqsave(&port->lock, flags);*/
-		/*serial8250_tx_chars(up);*/
-		/*spin_unlock_irqrestore(&port->lock, flags);*/
-	/*}*/
+		spin_lock_irqsave(&port->lock, flags);
+		serial8250_tx_chars(up);
+		spin_unlock_irqrestore(&port->lock, flags);
+	}
 
-	/*iir = serial_port_in(port, UART_IIR);*/
-	/*return serial8250_handle_irq(port, iir);*/
+	iir = serial_port_in(port, UART_IIR);
+	return serial8250_handle_irq(port, iir);
 	return 1;
 }
 
 static unsigned int serial8250_tx_empty(struct uart_port *port)
 {
-	/*struct uart_8250_port *up = up_to_u8250p(port);*/
-	/*unsigned long flags;*/
-	/*unsigned int lsr;*/
+	struct uart_8250_port *up = up_to_u8250p(port);
+	unsigned long flags;
+	unsigned int lsr;
 
-	/*serial8250_rpm_get(up);*/
+	serial8250_rpm_get(up);
 
-	/*spin_lock_irqsave(&port->lock, flags);*/
-	/*lsr = serial_port_in(port, UART_LSR);*/
-	/*up->lsr_saved_flags |= lsr & LSR_SAVE_FLAGS;*/
-	/*spin_unlock_irqrestore(&port->lock, flags);*/
+	spin_lock_irqsave(&port->lock, flags);
+	lsr = serial_port_in(port, UART_LSR);
+	up->lsr_saved_flags |= lsr & LSR_SAVE_FLAGS;
+	spin_unlock_irqrestore(&port->lock, flags);
 
-	/*serial8250_rpm_put(up);*/
+	serial8250_rpm_put(up);
 
-	/*return (lsr & BOTH_EMPTY) == BOTH_EMPTY ? TIOCSER_TEMT : 0;*/
+	return (lsr & BOTH_EMPTY) == BOTH_EMPTY ? TIOCSER_TEMT : 0;
 	return TIOCSER_TEMT;
 }
 
@@ -2057,33 +2057,33 @@ static void serial8250_break_ctl(struct uart_port *port, int break_state)
  */
 static void wait_for_xmitr(struct uart_8250_port *up, int bits)
 {
-	unsigned int status, tmout = 10000;
+	/*unsigned int status, tmout = 10000;*/
 
-	/* Wait up to 10ms for the character(s) to be sent. */
-	for (;;) {
-		status = serial_in(up, UART_LSR);
+	/*[> Wait up to 10ms for the character(s) to be sent. <]*/
+	/*for (;;) {*/
+		/*status = serial_in(up, UART_LSR);*/
 
-		up->lsr_saved_flags |= status & LSR_SAVE_FLAGS;
+		/*up->lsr_saved_flags |= status & LSR_SAVE_FLAGS;*/
 
-		if ((status & bits) == bits)
-			break;
-		if (--tmout == 0)
-			break;
-		udelay(1);
-		touch_nmi_watchdog();
-	}
+		/*if ((status & bits) == bits)*/
+			/*break;*/
+		/*if (--tmout == 0)*/
+			/*break;*/
+		/*udelay(1);*/
+		/*touch_nmi_watchdog();*/
+	/*}*/
 
-	/* Wait up to 1s for flow control if necessary */
-	if (up->port.flags & UPF_CONS_FLOW) {
-		for (tmout = 1000000; tmout; tmout--) {
-			unsigned int msr = serial_in(up, UART_MSR);
-			up->msr_saved_flags |= msr & MSR_SAVE_FLAGS;
-			if (msr & UART_MSR_CTS)
-				break;
-			udelay(1);
-			touch_nmi_watchdog();
-		}
-	}
+	/*[> Wait up to 1s for flow control if necessary <]*/
+	/*if (up->port.flags & UPF_CONS_FLOW) {*/
+		/*for (tmout = 1000000; tmout; tmout--) {*/
+			/*unsigned int msr = serial_in(up, UART_MSR);*/
+			/*up->msr_saved_flags |= msr & MSR_SAVE_FLAGS;*/
+			/*if (msr & UART_MSR_CTS)*/
+				/*break;*/
+			/*udelay(1);*/
+			/*touch_nmi_watchdog();*/
+		/*}*/
+	/*}*/
 }
 
 #ifdef CONFIG_CONSOLE_POLL
@@ -2094,23 +2094,23 @@ static void wait_for_xmitr(struct uart_8250_port *up, int bits)
 
 static int serial8250_get_poll_char(struct uart_port *port)
 {
-	/*struct uart_8250_port *up = up_to_u8250p(port);*/
-	/*unsigned char lsr;*/
-	/*int status;*/
+	struct uart_8250_port *up = up_to_u8250p(port);
+	unsigned char lsr;
+	int status;
 
-	/*serial8250_rpm_get(up);*/
+	serial8250_rpm_get(up);
 
-	/*lsr = serial_port_in(port, UART_LSR);*/
+	lsr = serial_port_in(port, UART_LSR);
 
-	/*if (!(lsr & UART_LSR_DR)) {*/
-		/*status = NO_POLL_CHAR;*/
-		/*goto out;*/
-	/*}*/
+	if (!(lsr & UART_LSR_DR)) {
+		status = NO_POLL_CHAR;
+		goto out;
+	}
 
-	/*status = serial_port_in(port, UART_RX);*/
-/*out:*/
-	/*serial8250_rpm_put(up);*/
-	/*return status;*/
+	status = serial_port_in(port, UART_RX);
+out:
+	serial8250_rpm_put(up);
+	return status;
 	return 0;
 }
 
@@ -2118,32 +2118,29 @@ static int serial8250_get_poll_char(struct uart_port *port)
 static void serial8250_put_poll_char(struct uart_port *port,
 			 unsigned char c)
 {
-	/*unsigned int ier;*/
-	/*struct uart_8250_port *up = up_to_u8250p(port);*/
+	unsigned int ier;
+	struct uart_8250_port *up = up_to_u8250p(port);
 
-	/*serial8250_rpm_get(up);*/
-	/*
-	 *	First save the IER then disable the interrupts
-	 */
-	/*ier = serial_port_in(port, UART_IER);*/
-	/*if (up->capabilities & UART_CAP_UUE)*/
-		/*serial_port_out(port, UART_IER, UART_IER_UUE);*/
-	/*else*/
-		/*serial_port_out(port, UART_IER, 0);*/
+	serial8250_rpm_get(up);
+	ier = serial_port_in(port, UART_IER);
+	if (up->capabilities & UART_CAP_UUE)
+		serial_port_out(port, UART_IER, UART_IER_UUE);
+	else
+		serial_port_out(port, UART_IER, 0);
 
-	/*wait_for_xmitr(up, BOTH_EMPTY);*/
+	wait_for_xmitr(up, BOTH_EMPTY);
 	/*
 	 *	Send the character out.
 	 */
-	/*serial_port_out(port, UART_TX, c);*/
+	serial_port_out(port, UART_TX, c);
 
 	/*
 	 *	Finally, wait for transmitter to become empty
 	 *	and restore the IER
 	 */
-	/*wait_for_xmitr(up, BOTH_EMPTY);*/
-	/*serial_port_out(port, UART_IER, ier);*/
-	/*serial8250_rpm_put(up);*/
+	wait_for_xmitr(up, BOTH_EMPTY);
+	serial_port_out(port, UART_IER, ier);
+	serial8250_rpm_put(up);
 	return 0;
 }
 
@@ -3242,13 +3239,14 @@ EXPORT_SYMBOL_GPL(serial8250_set_defaults);
 
 #ifdef CONFIG_SERIAL_8250_CONSOLE
 
+extern void _quasi_uart_putchar(char c);
 static void serial8250_console_putchar(struct uart_port *port, int ch)
 {
 	struct uart_8250_port *up = up_to_u8250p(port);
 
 	wait_for_xmitr(up, UART_LSR_THRE);
 	serial_port_out(port, UART_TX, ch);
-	serial_port_out(port, UART_TX, '_');
+	_quasi_uart_putchar(ch);
 }
 
 /*
@@ -3351,18 +3349,18 @@ void serial8250_console_write(struct uart_8250_port *up, const char *s,
 
 static unsigned int probe_baud(struct uart_port *port)
 {
-	return 0;
-	/*unsigned char lcr, dll, dlm;*/
-	/*unsigned int quot;*/
+	/*return 0;*/
+	unsigned char lcr, dll, dlm;
+	unsigned int quot;
 
-	/*lcr = serial_port_in(port, UART_LCR);*/
-	/*serial_port_out(port, UART_LCR, lcr | UART_LCR_DLAB);*/
-	/*dll = serial_port_in(port, UART_DLL);*/
-	/*dlm = serial_port_in(port, UART_DLM);*/
-	/*serial_port_out(port, UART_LCR, lcr);*/
+	lcr = serial_port_in(port, UART_LCR);
+	serial_port_out(port, UART_LCR, lcr | UART_LCR_DLAB);
+	dll = serial_port_in(port, UART_DLL);
+	dlm = serial_port_in(port, UART_DLM);
+	serial_port_out(port, UART_LCR, lcr);
 
-	/*quot = (dlm << 8) | dll;*/
-	/*return (port->uartclk / 16) / quot;*/
+	quot = (dlm << 8) | dll;
+	return (port->uartclk / 16) / quot;
 }
 
 int serial8250_console_setup(struct uart_port *port, char *options, bool probe)

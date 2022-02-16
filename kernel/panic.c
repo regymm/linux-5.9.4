@@ -174,6 +174,7 @@ static void panic_print_sys_info(void)
  *
  *	This function never returns.
  */
+extern void _quasi_uart_putchar(char);
 void panic(const char *fmt, ...)
 {
 	static char buf[1024];
@@ -347,6 +348,8 @@ void panic(const char *fmt, ...)
 	disabled_wait();
 #endif
 	pr_emerg("---[ end Kernel panic - not syncing: %s ]---\n", buf);
+	_quasi_uart_putchar('G');
+	while(1);
 
 	/* Do not scroll important messages printed above */
 	suppress_printk = 1;

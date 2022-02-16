@@ -909,6 +909,8 @@ void handle_percpu_irq(struct irq_desc *desc)
  * contain the real device id for the cpu on which this handler is
  * called
  */
+extern void _quasi_uart_putchar(char);
+extern void _quasi_uart_puthex(unsigned int);
 void handle_percpu_devid_irq(struct irq_desc *desc)
 {
 	struct irq_chip *chip = irq_desc_get_chip(desc);
@@ -927,6 +929,8 @@ void handle_percpu_devid_irq(struct irq_desc *desc)
 
 	if (likely(action)) {
 		trace_irq_handler_entry(irq, action);
+		/*_quasi_uart_puthex(action->handler);*/
+		/*_quasi_uart_putchar('\n');*/
 		res = action->handler(irq, raw_cpu_ptr(action->percpu_dev_id));
 		trace_irq_handler_exit(irq, action, res);
 	} else {
@@ -937,7 +941,7 @@ void handle_percpu_devid_irq(struct irq_desc *desc)
 			irq_percpu_disable(desc, cpu);
 
 		pr_err_once("Spurious%s percpu IRQ%u on CPU%u\n",
-			    enabled ? " and unmasked" : "", irq, cpu);
+				enabled ? " and unmasked" : "", irq, cpu);
 	}
 
 	if (chip->irq_eoi)

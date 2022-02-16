@@ -89,7 +89,6 @@ static void tick_periodic(int cpu)
 
 		/* Keep track of the next tick event */
 		tick_next_period = ktime_add(tick_next_period, tick_period);
-
 		do_timer(1);
 		write_seqcount_end(&jiffies_seq);
 		raw_spin_unlock(&jiffies_lock);
@@ -127,7 +126,7 @@ void tick_handle_periodic(struct clock_event_device *dev)
 		 * Setup the next period for devices, which do not have
 		 * periodic mode:
 		 */
-		next = ktime_add(next, tick_period);
+		next = ktime_add(next, tick_period); // it's just an add..
 
 		if (!clockevents_program_event(dev, next, false))
 			return;
@@ -140,8 +139,10 @@ void tick_handle_periodic(struct clock_event_device *dev)
 		 * which then will increment time, possibly causing
 		 * the loop to trigger again and again.
 		 */
-		if (timekeeping_valid_for_hres())
+		if (timekeeping_valid_for_hres()) {
 			tick_periodic(cpu);
+			/*_quasi_uart_putchar('@');*/
+		}
 	}
 }
 

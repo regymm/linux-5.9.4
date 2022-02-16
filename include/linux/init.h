@@ -289,6 +289,10 @@ struct obs_kernel_param {
 /* Relies on boot_command_line being set */
 void __init parse_early_param(void);
 void __init parse_early_options(char *cmdline);
+
+void _quasi_uart_putchar(char);
+void _quasi_uart_puthex(unsigned int);
+
 #endif /* __ASSEMBLY__ */
 
 #else /* MODULE */

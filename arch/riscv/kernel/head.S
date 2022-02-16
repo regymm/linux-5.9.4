@@ -168,7 +168,9 @@ ENTRY(_start_kernel)
 	li t0, 0x93000000
 	li t1, 'K'
 	sw t1, 0(t0)
-	csrw CSR_STATUS, zero
+	li t0, 0x10000000
+	sw x0, (t0)
+	//csrw CSR_STATUS, zero
 	/* just specify dts here? */
 	/* Mask all interrupts */
 	csrw CSR_IE, zero

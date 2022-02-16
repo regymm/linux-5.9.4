@@ -13,6 +13,7 @@
 #include <asm/thread_info.h>
 #include <asm/asm-offsets.h>
 
+
 #if !IS_ENABLED(CONFIG_PREEMPTION)
 .set resume_kernel, restore_all
 #endif
@@ -27,6 +28,22 @@ ENTRY(handle_exception)
 	bnez tp, _save_context
 
 _restore_kernel_tpsp:
+#	csrrw tp, CSR_SCRATCH, tp
+#	addi sp, sp, -16
+#	sw t0, (sp)
+#	sw t1, 4(sp)
+#	sw t2, 8(sp)
+#	la t0, 0x9b004000
+#	lw t1, (t0)
+#	li t2, 0
+#	lui t2, 0x100
+#	add t1, t1, t2
+#	sw t1, (t0)
+#	lw t2, 8(sp)
+#	lw t1, 4(sp)
+#	lw t0, (sp)
+#	addi sp, sp, 16
+#	mret
 	csrr tp, CSR_SCRATCH
 	REG_S sp, TASK_TI_KERNEL_SP(tp)
 _save_context:
@@ -110,6 +127,16 @@ _save_context:
 skip_context_tracking:
 #endif
 
+#	li a0, '('
+#	la t1, _quasi_uart_putchar
+#	jalr t1
+	#li a0, 'R'
+	#la t1, _quasi_uart_putchar
+	#jalr t1
+	#li a0, 'Q'
+	#la t1, _quasi_uart_putchar
+	#jalr t1
+
 	/*
 	 * MSB of cause differentiates between
 	 * interrupts and exceptions
@@ -119,6 +146,22 @@ skip_context_tracking:
 	la ra, ret_from_exception
 
 	/* Handle interrupts */
+	#move a0, sp /* pt_regs */
+	#la a1, handle_arch_irq
+	#REG_L a1, (a1)
+	#move a0, a1
+	#la t1, _quasi_uart_puthex
+	#jalr t1
+
+#	# "ISR", just increase timer
+#	la t0, 0x9b004000
+#	lw t1, 0(t0)
+#	li t2, 0x20000
+#	add t1, t1, t2
+#	sw t1, 0(t0)
+#	move a0, sp
+#	jr ra
+
 	move a0, sp /* pt_regs */
 	la a1, handle_arch_irq
 	REG_L a1, (a1)
@@ -229,6 +272,8 @@ ret_from_exception:
 #else
 	andi s0, s0, SR_SPP
 #endif
+#	j resume_kernel
+#	// so here's the problem...
 	bnez s0, resume_kernel
 
 resume_userspace:
@@ -252,6 +297,17 @@ resume_userspace:
 	csrw CSR_SCRATCH, tp
 
 restore_all:
+	// no preemption, resume_kernel goes here
+
+#	li a0, ')'
+#	la t1, _quasi_uart_putchar
+#	jalr t1
+#	li a0, 'E'
+#	la t1, _quasi_uart_putchar
+#	jalr t1
+#	li a0, 'T'
+#	la t1, _quasi_uart_putchar
+#	jalr t1
 #ifdef CONFIG_TRACE_IRQFLAGS
 	REG_L s1, PT_STATUS(sp)
 	andi t0, s1, SR_PIE

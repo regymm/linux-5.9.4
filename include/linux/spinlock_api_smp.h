@@ -152,13 +152,28 @@ static inline void __raw_spin_unlock(raw_spinlock_t *lock)
 	preempt_enable();
 }
 
+extern void _quasi_uart_putchar(char c);
+// debug THIS
 static inline void __raw_spin_unlock_irqrestore(raw_spinlock_t *lock,
 					    unsigned long flags)
 {
+	//_quasi_uart_putchar('E');
+	//_quasi_uart_putchar('a');
+	//_quasi_uart_putchar('b');
 	spin_release(&lock->dep_map, _RET_IP_);
 	do_raw_spin_unlock(lock);
+	//_quasi_uart_putchar('U');
+	// check reg statuses here
+	//register void *sp asm ("ra");
+	//_quasi_uart_puthex(sp);
+	//_quasi_uart_putchar(' ');
 	local_irq_restore(flags);
+	//register void *sp2 asm ("ra");
+	//_quasi_uart_puthex(sp2);
+	//_quasi_uart_putchar('\n');
 	preempt_enable();
+	//_quasi_uart_putchar('L');
+	//_quasi_uart_putchar('d');
 }
 
 static inline void __raw_spin_unlock_irq(raw_spinlock_t *lock)

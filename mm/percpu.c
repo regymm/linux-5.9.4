@@ -1674,6 +1674,7 @@ static void pcpu_memcg_free_hook(struct pcpu_chunk *chunk, int off, size_t size)
  * RETURNS:
  * Percpu pointer to the allocated area on success, NULL on failure.
  */
+extern void _quasi_uart_putchar(char);
 static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
 				 gfp_t gfp)
 {
@@ -1847,6 +1848,8 @@ area_found:
 
 	pcpu_memcg_post_alloc_hook(objcg, chunk, off, size);
 
+	/*_quasi_uart_putchar('O');*/
+	/*_quasi_uart_putchar('K');*/
 	return ptr;
 
 fail_unlock:

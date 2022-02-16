@@ -64,7 +64,7 @@
 #define EXC_BREAKPOINT		3
 #define EXC_LOAD_ACCESS		5
 #define EXC_STORE_ACCESS	7
-#define EXC_SYSCALL		8
+#define EXC_SYSCALL		11 // should be 8... TODO: change hardware mcause
 #define EXC_INST_PAGE_FAULT	12
 #define EXC_LOAD_PAGE_FAULT	13
 #define EXC_STORE_PAGE_FAULT	15

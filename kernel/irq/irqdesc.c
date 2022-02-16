@@ -19,6 +19,8 @@
 
 #include "internals.h"
 
+extern void _quasi_uart_putchar(char);
+extern void _quasi_uart_puthex(unsigned int);
 /*
  * lockdep: we want to handle all irq_desc locks as a single lock-class:
  */
@@ -666,6 +668,8 @@ int __handle_domain_irq(struct irq_domain *domain, unsigned int hwirq,
 			bool lookup, struct pt_regs *regs)
 {
 	struct pt_regs *old_regs = set_irq_regs(regs);
+	/*_quasi_uart_puthex(regs); // non zero*/
+	/*_quasi_uart_puthex(old_regs); // zero, should be*/
 	unsigned int irq = hwirq;
 	int ret = 0;
 
@@ -684,6 +688,9 @@ int __handle_domain_irq(struct irq_domain *domain, unsigned int hwirq,
 		ack_bad_irq(irq);
 		ret = -EINVAL;
 	} else {
+		/*volatile unsigned int* timecmpl = 0x9b004000;*/
+		/*unsigned int tcmpnow = *timecmpl;*/
+		/**timecmpl = (tcmpnow + 0x20000);*/
 		generic_handle_irq(irq);
 	}
 
