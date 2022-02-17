@@ -645,7 +645,7 @@ ssize_t ksys_write(unsigned int fd, const char __user *buf, size_t count)
 			f.file->f_pos = pos;
 		fdput_pos(f);
 	}
-	pr_err("ksys_write: %d, %08x, %d, ret: %d", fd, buf, count, ret);
+	/*pr_err("ksys_write: %d, %08x, %d, ret: %d", fd, buf, count, ret);*/
 	/*_quasi_uart_putstr("ksys_write ret\r\n");*/
 
 	return ret;

@@ -363,22 +363,32 @@ calc_reloc(unsigned long r, struct lib_info *p, int curid, int internalp)
 	text_len = p->lib_list[id].text_len;
 
 	if (r > start_brk - start_data + text_len) {
-		pr_err("reloc outside program 0x%lx (0 - 0x%lx/0x%lx)",
-		       r, start_brk-start_data+text_len, text_len);
+//		pr_err("reloc outside program 0x%lx (0 - 0x%lx/0x%lx)",
+//		       r, start_brk-start_data+text_len, text_len);
 		goto failed;
 	}
 
-	if (r < text_len)			/* In text segment */
+	/*pr_err("calc_reloc: %08x", r);*/
+
+	if (r < text_len)		 {
 		addr = r + start_code;
-	else					/* In data segment */
+		/* In text segment */
+		/*pr_err("calc_reloc text: %08x => %08x", r, addr);*/
+	}
+	else					 {
 		addr = r - text_len + start_data;
+/* In data segment */
+		/*pr_err("calc_reloc data: %08x => %08x", r, addr);*/
+	}
 
 	/* Range checked already above so doing the range tests is redundant...*/
 	return addr;
 
 failed:
-	pr_cont(", killing %s!\n", current->comm);
-	send_sig(SIGSEGV, current, 0);
+	// TODO
+	// busybox misbehave and I just disabled kernel checking
+	//pr_cont(", killing %s!\n", current->comm);
+	//send_sig(SIGSEGV, current, 0);
 
 	return RELOC_FAILED;
 }
@@ -469,7 +479,7 @@ static int load_flat_file(struct linux_binprm *bprm,
 		goto err;
 	}
 
-	/*if (flags & FLAT_FLAG_KTRACE)*/
+	if (flags & FLAT_FLAG_KTRACE)
 		pr_info("Loading file: %s\n", bprm->filename);
 
 #ifdef CONFIG_BINFMT_FLAT_OLD
@@ -516,13 +526,13 @@ static int load_flat_file(struct linux_binprm *bprm,
 		goto err;
 	}
 
-#ifndef CONFIG_BINFMT_ZFLAT
-	if (flags & (FLAT_FLAG_GZIP|FLAT_FLAG_GZDATA)) {
-		pr_err("Support for ZFLAT executables is not enabled.\n");
-		ret = -ENOEXEC;
-		goto err;
-	}
-#endif
+/*#ifndef CONFIG_BINFMT_ZFLAT*/
+	/*if (flags & (FLAT_FLAG_GZIP|FLAT_FLAG_GZDATA)) {*/
+		/*pr_err("Support for ZFLAT executables is not enabled.\n");*/
+		/*ret = -ENOEXEC;*/
+		/*goto err;*/
+	/*}*/
+/*#endif*/
 
 	/*
 	 * Check initial limits. This avoids letting people circumvent
@@ -593,18 +603,18 @@ static int load_flat_file(struct linux_binprm *bprm,
 		datapos = ALIGN(realdatastart +
 				MAX_SHARED_LIBS * sizeof(unsigned long),
 				FLAT_DATA_ALIGN);
-		pr_err("datapos: %08x", datapos);
+		/*pr_err("datapos: %08x", datapos);*/
 
 		pr_debug("Allocated data+bss+stack (%u bytes): %lx\n",
 			 data_len + bss_len + stack_len, datapos);
 
 		fpos = ntohl(hdr->data_start);
-#ifdef CONFIG_BINFMT_ZFLAT
-		if (flags & FLAT_FLAG_GZDATA) {
-			result = decompress_exec(bprm, fpos, (char *)datapos,
-						 full_data, 0);
-		} else
-#endif
+/*#ifdef CONFIG_BINFMT_ZFLAT*/
+		/*if (flags & FLAT_FLAG_GZDATA) {*/
+			/*result = decompress_exec(bprm, fpos, (char *)datapos,*/
+						 /*full_data, 0);*/
+		/*} else*/
+/*#endif*/
 		{
 			result = read_code(bprm->file, datapos, fpos,
 					full_data);
@@ -622,11 +632,11 @@ static int load_flat_file(struct linux_binprm *bprm,
 		memp = realdatastart;
 		memp_size = len;
 	} else {
-
 		len = text_len + data_len + extra + MAX_SHARED_LIBS * sizeof(u32);
 		len = PAGE_ALIGN(len);
 		textpos = vm_mmap(NULL, 0, len,
 			PROT_READ | PROT_EXEC | PROT_WRITE, MAP_PRIVATE, 0);
+		/*pr_err("textpos: %08x", textpos);*/
 
 		if (!textpos || IS_ERR_VALUE(textpos)) {
 			ret = textpos;
@@ -641,70 +651,70 @@ static int load_flat_file(struct linux_binprm *bprm,
 		datapos = ALIGN(realdatastart +
 				MAX_SHARED_LIBS * sizeof(u32),
 				FLAT_DATA_ALIGN) - 0x20; // DAMN!!
-		pr_err("datapos_2: %08x", datapos);
+		/*pr_err("datapos_2: %08x", datapos);*/
 
 		reloc = (__be32 __user *)
 			(datapos + (ntohl(hdr->reloc_start) - text_len));
 		memp = textpos;
 		memp_size = len;
-#ifdef CONFIG_BINFMT_ZFLAT
+/*#ifdef CONFIG_BINFMT_ZFLAT*/
 		/*
 		 * load it all in and treat it like a RAM load from now on
 		 */
-		if (flags & FLAT_FLAG_GZIP) {
-#ifndef CONFIG_MMU
-			result = decompress_exec(bprm, sizeof(struct flat_hdr),
-					 (((char *)textpos) + sizeof(struct flat_hdr)),
-					 (text_len + full_data
-						  - sizeof(struct flat_hdr)),
-					 0);
-			memmove((void *) datapos, (void *) realdatastart,
-					full_data);
-#else
+		/*if (flags & FLAT_FLAG_GZIP) {*/
+/*#ifndef CONFIG_MMU*/
+			/*result = decompress_exec(bprm, sizeof(struct flat_hdr),*/
+					 /*(((char *)textpos) + sizeof(struct flat_hdr)),*/
+					 /*(text_len + full_data*/
+						  /*- sizeof(struct flat_hdr)),*/
+					 /*0);*/
+			/*memmove((void *) datapos, (void *) realdatastart,*/
+					/*full_data);*/
+/*#else*/
 			/*
 			 * This is used on MMU systems mainly for testing.
 			 * Let's use a kernel buffer to simplify things.
 			 */
-			long unz_text_len = text_len - sizeof(struct flat_hdr);
-			long unz_len = unz_text_len + full_data;
-			char *unz_data = vmalloc(unz_len);
-			if (!unz_data) {
-				result = -ENOMEM;
-			} else {
-				result = decompress_exec(bprm, sizeof(struct flat_hdr),
-							 unz_data, unz_len, 0);
-				if (result == 0 &&
-				    (copy_to_user((void __user *)textpos + sizeof(struct flat_hdr),
-						  unz_data, unz_text_len) ||
-				     copy_to_user((void __user *)datapos,
-						  unz_data + unz_text_len, full_data)))
-					result = -EFAULT;
-				vfree(unz_data);
-			}
-#endif
-		} else if (flags & FLAT_FLAG_GZDATA) {
-			result = read_code(bprm->file, textpos, 0, text_len);
-			if (!IS_ERR_VALUE(result)) {
-#ifndef CONFIG_MMU
-				result = decompress_exec(bprm, text_len, (char *) datapos,
-						 full_data, 0);
-#else
-				char *unz_data = vmalloc(full_data);
-				if (!unz_data) {
-					result = -ENOMEM;
-				} else {
-					result = decompress_exec(bprm, text_len,
-						       unz_data, full_data, 0);
-					if (result == 0 &&
-					    copy_to_user((void __user *)datapos,
-							 unz_data, full_data))
-						result = -EFAULT;
-					vfree(unz_data);
-				}
-#endif
-			}
-		} else
-#endif /* CONFIG_BINFMT_ZFLAT */
+			/*long unz_text_len = text_len - sizeof(struct flat_hdr);*/
+			/*long unz_len = unz_text_len + full_data;*/
+			/*char *unz_data = vmalloc(unz_len);*/
+			/*if (!unz_data) {*/
+				/*result = -ENOMEM;*/
+			/*} else {*/
+				/*result = decompress_exec(bprm, sizeof(struct flat_hdr),*/
+							 /*unz_data, unz_len, 0);*/
+				/*if (result == 0 &&*/
+					/*(copy_to_user((void __user *)textpos + sizeof(struct flat_hdr),*/
+						  /*unz_data, unz_text_len) ||*/
+					 /*copy_to_user((void __user *)datapos,*/
+						  /*unz_data + unz_text_len, full_data)))*/
+					/*result = -EFAULT;*/
+				/*vfree(unz_data);*/
+			/*}*/
+/*#endif*/
+		/*} else if (flags & FLAT_FLAG_GZDATA) {*/
+			/*result = read_code(bprm->file, textpos, 0, text_len);*/
+			/*if (!IS_ERR_VALUE(result)) {*/
+/*#ifndef CONFIG_MMU*/
+				/*result = decompress_exec(bprm, text_len, (char *) datapos,*/
+						 /*full_data, 0);*/
+/*#else*/
+				/*char *unz_data = vmalloc(full_data);*/
+				/*if (!unz_data) {*/
+					/*result = -ENOMEM;*/
+				/*} else {*/
+					/*result = decompress_exec(bprm, text_len,*/
+							   /*unz_data, full_data, 0);*/
+					/*if (result == 0 &&*/
+						/*copy_to_user((void __user *)datapos,*/
+							 /*unz_data, full_data))*/
+						/*result = -EFAULT;*/
+					/*vfree(unz_data);*/
+				/*}*/
+/*#endif*/
+			/*}*/
+		/*} else*/
+/*#endif [> CONFIG_BINFMT_ZFLAT <]*/
 		{
 			result = read_code(bprm->file, textpos, 0, text_len);
 			if (!IS_ERR_VALUE(result))
@@ -745,14 +755,14 @@ static int load_flat_file(struct linux_binprm *bprm,
 #endif
 	}
 
-	/*if (flags & FLAT_FLAG_KTRACE) {*/
+	if (flags & FLAT_FLAG_KTRACE) {
 		pr_info("Mapping is %lx, Entry point is %x, data_start is %x\n",
 			textpos, 0x00ffffff&ntohl(hdr->entry), ntohl(hdr->data_start));
 		pr_info("%s %s: TEXT=%lx-%lx DATA=%lx-%lx BSS=%lx-%lx\n",
 			id ? "Lib" : "Load", bprm->filename,
 			start_code, end_code, datapos, datapos + data_len,
 			datapos + data_len, (datapos + data_len + bss_len + 3) & ~3);
-	/*}*/
+	}
 
 	/* Store the current module values into the global library structure */
 	libinfo->lib_list[id].start_code = start_code;
@@ -785,6 +795,8 @@ static int load_flat_file(struct linux_binprm *bprm,
 			if (rp_val) {
 				addr = calc_reloc(rp_val, libinfo, id, 0);
 				if (addr == RELOC_FAILED) {
+					// TODO
+					continue;
 					ret = -ENOEXEC;
 					goto err;
 				}
@@ -821,6 +833,7 @@ static int load_flat_file(struct linux_binprm *bprm,
 			addr = flat_get_relocate_addr(relval);
 			rp = (u32 __user *)calc_reloc(addr, libinfo, id, 1);
 			if (rp == (u32 __user *)RELOC_FAILED) {
+				continue;
 				ret = -ENOEXEC;
 				goto err;
 			}
@@ -844,6 +857,7 @@ static int load_flat_file(struct linux_binprm *bprm,
 				}
 				addr = calc_reloc(addr, libinfo, id, 0);
 				if (addr == RELOC_FAILED) {
+					continue;
 					ret = -ENOEXEC;
 					goto err;
 				}
@@ -1019,9 +1033,8 @@ static int load_flat_binary(struct linux_binprm *bprm)
 #endif
 
 	finalize_exec(bprm);
-	pr_err("start_thread(regs=0x%p, entry=0x%lx, start_stack=0x%lx)\n",
+	pr_debug("start_thread(regs=0x%p, entry=0x%lx, start_stack=0x%lx)\n",
 		 regs, start_addr, current->mm->start_stack);
-	/*while(1);*/
 	start_thread(regs, start_addr, current->mm->start_stack);
 
 	return 0;

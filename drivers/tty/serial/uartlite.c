@@ -23,6 +23,13 @@
 #include <linux/of_platform.h>
 #include <linux/clk.h>
 
+struct quasi_uart {
+	struct uart_port port;
+	struct timer_list my_timer;
+};
+// only one inst hehe
+static struct quasi_uart quasi_uart_inst;
+
 void _quasi_uart_puthex(unsigned int hex)
 {
 	int x;
@@ -65,6 +72,19 @@ void _quasi_uart_putstr(const char* str)
 {
 	int n = 0;
 	while(str[n]) _quasi_uart_putchar(str[n++]);
+}
+static char quasi_uart_getchar_nonblock(void)
+{
+	volatile int* uart_rx_new = (int*) 0x93000004;
+	volatile int* uart_rx_reset = (int*) 0x93000004;
+	volatile int* uart_rx_data = (int*) 0x93000000;
+	if (!*uart_rx_new) {
+		*uart_rx_reset = 1;
+		return 0;
+	}
+	char c = *uart_rx_data;
+	*uart_rx_reset = 1;
+	return c;
 }
 
 #define ULITE_NAME		"ttyUL"
@@ -169,19 +189,21 @@ static struct uart_port ulite_ports[ULITE_NR_UARTS];
 
 static int ulite_receive(struct uart_port *port, int stat)
 {
-	_quasi_uart_putstr("ulite_receive\n");
-	/*struct tty_port *tport = &port->state->port;*/
-	/*unsigned char ch = 0;*/
-	/*char flag = TTY_NORMAL;*/
+	/*_quasi_uart_putstr("ulite_receive\n");*/
+	struct tty_port *tport = &port->state->port;
+	unsigned char ch = 0;
+	char flag = TTY_NORMAL;
 
 	/*if ((stat & (ULITE_STATUS_RXVALID | ULITE_STATUS_OVERRUN*/
 			 /*| ULITE_STATUS_FRAME)) == 0)*/
 		/*return 0;*/
 
-	/*[> stats <]*/
+	/* stats */
 	/*if (stat & ULITE_STATUS_RXVALID) {*/
-		/*port->icount.rx++;*/
 		/*ch = uart_in32(ULITE_RX, port);*/
+		ch = quasi_uart_getchar_nonblock();
+		if (!ch) return 0;
+		port->icount.rx++;
 
 		/*if (stat & ULITE_STATUS_PARITY)*/
 			/*port->icount.parity++;*/
@@ -194,7 +216,7 @@ static int ulite_receive(struct uart_port *port, int stat)
 		/*port->icount.frame++;*/
 
 
-	/*[> drop byte with parity error if IGNPAR specificed <]*/
+	/* drop byte with parity error if IGNPAR specificed */
 	/*if (stat & port->ignore_status_mask & ULITE_STATUS_PARITY)*/
 		/*stat &= ~ULITE_STATUS_RXVALID;*/
 
@@ -207,7 +229,7 @@ static int ulite_receive(struct uart_port *port, int stat)
 	/*stat &= ~port->ignore_status_mask;*/
 
 	/*if (stat & ULITE_STATUS_RXVALID)*/
-		/*tty_insert_flip_char(tport, ch, flag);*/
+		tty_insert_flip_char(tport, ch, flag);
 
 	/*if (stat & ULITE_STATUS_FRAME)*/
 		/*tty_insert_flip_char(tport, 0, TTY_FRAME);*/
@@ -251,18 +273,20 @@ static int ulite_transmit(struct uart_port *port, int stat)
 
 static irqreturn_t ulite_isr(int irq, void *dev_id)
 {
+	/*_quasi_uart_putstr("ulite_isr!\n");*/
+	/*_quasi_uart_putstr("ulite_isr!!\n");*/
 	struct uart_port *port = dev_id;
 	int stat, busy, n = 0;
 	unsigned long flags;
 
-	/*do {*/
-		/*spin_lock_irqsave(&port->lock, flags);*/
+	do {
+		spin_lock_irqsave(&port->lock, flags);
 		/*stat = uart_in32(ULITE_STATUS, port);*/
-		/*busy  = ulite_receive(port, stat);*/
-		/*busy |= ulite_transmit(port, stat);*/
-		/*spin_unlock_irqrestore(&port->lock, flags);*/
-		/*n++;*/
-	/*} while (busy);*/
+		busy  = ulite_receive(port, stat);
+		busy |= ulite_transmit(port, stat);
+		spin_unlock_irqrestore(&port->lock, flags);
+		n++;
+	} while (busy);
 
 	/* work done? */
 	if (n > 1) {
@@ -271,6 +295,16 @@ static irqreturn_t ulite_isr(int irq, void *dev_id)
 	} else {
 		return IRQ_NONE;
 	}
+}
+
+// my polling UART
+static void ulite_timeout(struct timer_list *t)
+{
+	/*_quasi_uart_putstr("ulite_timeout!\n");*/
+	// only one inst so no need from_timer
+	struct uart_port *port = &quasi_uart_inst.port;
+	ulite_isr(0, port);
+	mod_timer(&quasi_uart_inst.my_timer, jiffies + 20);
 }
 
 static unsigned int ulite_tx_empty(struct uart_port *port)
@@ -328,8 +362,12 @@ static void ulite_break_ctl(struct uart_port *port, int ctl)
 
 static int ulite_startup(struct uart_port *port)
 {
-	struct uartlite_data *pdata = port->private_data;
-	int ret;
+	/*struct uartlite_data *pdata = port->private_data;*/
+	/*int ret;*/
+
+	quasi_uart_inst.port = *port;
+	timer_setup(&quasi_uart_inst.my_timer, ulite_timeout, 0);
+	mod_timer(&quasi_uart_inst.my_timer, jiffies + 20);
 
 	/*ret = clk_enable(pdata->clk);*/
 	/*if (ret) {*/
@@ -338,6 +376,8 @@ static int ulite_startup(struct uart_port *port)
 	/*}*/
 
 	/*ret = request_irq(port->irq, ulite_isr, IRQF_SHARED | IRQF_TRIGGER_RISING,*/
+			  /*"uartlite", port);*/
+	/*ret = request_irq(port->irq, ulite_isr, IRQF_IRQPOLL,*/
 			  /*"uartlite", port);*/
 	/*if (ret)*/
 		/*return ret;*/
@@ -351,6 +391,7 @@ static int ulite_startup(struct uart_port *port)
 
 static void ulite_shutdown(struct uart_port *port)
 {
+	del_timer(&quasi_uart_inst.my_timer);
 	/*struct uartlite_data *pdata = port->private_data;*/
 
 	/*uart_out32(0, ULITE_CONTROL, port);*/
@@ -461,19 +502,24 @@ static void ulite_pm(struct uart_port *port, unsigned int state,
 #ifdef CONFIG_CONSOLE_POLL
 static int ulite_get_poll_char(struct uart_port *port)
 {
-	if (!(uart_in32(ULITE_STATUS, port) & ULITE_STATUS_RXVALID))
-		return NO_POLL_CHAR;
+	_quasi_uart_putstr("ulite_get_poll_char\n");
+	return NO_POLL_CHAR;
+	/*if (!(uart_in32(ULITE_STATUS, port) & ULITE_STATUS_RXVALID))*/
+		/*return NO_POLL_CHAR;*/
 
-	return uart_in32(ULITE_RX, port);
+	/*return uart_in32(ULITE_RX, port);*/
 }
 
 static void ulite_put_poll_char(struct uart_port *port, unsigned char ch)
 {
-	while (uart_in32(ULITE_STATUS, port) & ULITE_STATUS_TXFULL)
-		cpu_relax();
+	_quasi_uart_putstr("ulite_put_poll_char\n");
+	cpu_relax();
+	return;
+	/*while (uart_in32(ULITE_STATUS, port) & ULITE_STATUS_TXFULL)*/
+		/*cpu_relax();*/
 
 	/* write char to device */
-	uart_out32(ch, ULITE_TX, port);
+	/*uart_out32(ch, ULITE_TX, port);*/
 }
 #endif
 
